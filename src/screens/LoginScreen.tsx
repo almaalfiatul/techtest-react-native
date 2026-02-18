@@ -1,4 +1,3 @@
-import { fakeLogin } from "@/services/fakeAuth";
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -17,7 +16,6 @@ import {
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "@/navigation/AppNavigator";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 WebBrowser.maybeCompleteAuthSession();
@@ -25,18 +23,22 @@ WebBrowser.maybeCompleteAuthSession();
 type Props = NativeStackScreenProps<RootStackParamList, "Login">;
 
 type GoogleUser = {
+  id: string;
   email: string;
+  verified_email: boolean;
   name: string;
+  given_name: string;
+  family_name: string;
   picture?: string;
 };
 
 export default function LoginScreen({ navigation }: Props) {
   const colorScheme = useColorScheme();
-
+  const [token, setToken] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const [userInfo, setUserInfo] = useState<GoogleUser | null>(null);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -49,52 +51,58 @@ export default function LoginScreen({ navigation }: Props) {
   });
 
   useEffect(() => {
-    loadGoogleUser();
-  }, []);
+    handleEffect();
+  }, [response, token]);
 
-  useEffect(() => {
-    if (
-      response?.type === "success" &&
-      response.authentication?.accessToken
-    ) {
-      fetchGoogleUser(response.authentication.accessToken);
-    }
-  }, [response]);
+  async function handleEffect() {
+    const user = await getLocalUser();
 
-  const loadGoogleUser = async () => {
-    const data = await AsyncStorage.getItem("@googleUser");
-    if (!data) return;
+    if (!user) {
+      if (
+        response?.type === "success" &&
+        response.authentication?.accessToken
+      ) {
+        const token = response.authentication.accessToken;
 
-    const user = JSON.parse(data);
-    setUserInfo(user);
-    navigation.replace("Home", { email: user.email });
-  };
+        const userData = await getUserInfo(token);
 
-  const fetchGoogleUser = async (token: string) => {
-    try {
-      const res = await fetch(
-        "https://www.googleapis.com/userinfo/v2/me",
-        {
-          headers: { Authorization: `Bearer ${token}` },
+        if (userData) {
+          navigation.replace("Home", { email: userData.email });
         }
-      );
-
-      const user = await res.json();
-
-      const cleanUser = {
-        email: user.email,
-        name: user.name,
-        picture: user.picture,
-      };
-
-      await AsyncStorage.setItem("@googleUser", JSON.stringify(cleanUser));
-      setUserInfo(cleanUser);
-
-      navigation.replace("Home", { email: cleanUser.email });
-    } catch (err) {
-      console.log("Google login failed", err);
+      }
+    } else {
+      setUserInfo(user);
+      navigation.replace("Home", { email: 'null' });
     }
+  }
+
+
+  const getLocalUser = async () => {
+    const data = await AsyncStorage.getItem("@user");
+    console.log(data, 'data');
+    
+    if (!data) return null;
+    return JSON.parse(data);
   };
+
+  const getUserInfo = async (token:any) => {
+  if (!token) return;
+  try {
+    const response = await fetch(
+    "https://www.googleapis.com/userinfo/v2/me",
+    {
+        headers: { Authorization: `Bearer ${token}` },
+    }
+    );
+
+    const user = await response.json();
+    await AsyncStorage.setItem("@user", JSON.stringify(user));
+    setUserInfo(user);
+    return(user);
+  } catch (error) {
+
+  }
+};
 
   const handleEmailLogin = async () => {
     setError(null);
@@ -102,24 +110,12 @@ export default function LoginScreen({ navigation }: Props) {
     if (!/\S+@\S+\.\S+/.test(email)) {
       return setError("Invalid email format");
     }
-
     if (password.length < 6) {
       return setError("Password must be at least 6 characters");
     }
 
     setLoading(true);
-
-    try {
-      const result = await fakeLogin(email, password);
-
-      await AsyncStorage.setItem("authToken", result.token);
-      navigation.replace("Home", { email });
-
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      navigation.replace("Home", { email: email });
   };
 
   return (
@@ -173,15 +169,11 @@ export default function LoginScreen({ navigation }: Props) {
             onPress={handleEmailLogin}
             disabled={loading}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.loginText}>Login</Text>
-            )}
+            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.loginText}>Login</Text>}
           </TouchableOpacity>
 
           <Text style={styles.or}>OR</Text>
-
+          <Text>{JSON.stringify(userInfo)}</Text>
           {!userInfo && (
             <TouchableOpacity
               style={styles.googleBtn}
@@ -197,8 +189,8 @@ export default function LoginScreen({ navigation }: Props) {
               {userInfo.picture && (
                 <Image source={{ uri: userInfo.picture }} style={styles.image} />
               )}
-              <Text>{userInfo.name}</Text>
-              <Text>{userInfo.email}</Text>
+              <Text>Email: {userInfo.email}</Text>
+              <Text>Name: {userInfo.name}</Text>
             </View>
           )}
         </View>

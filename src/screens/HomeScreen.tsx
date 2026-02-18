@@ -36,7 +36,7 @@ type HomeScreenProps = NativeStackScreenProps<
 >;
 
 const HomeScreen = ({ navigation, route }: HomeScreenProps) => {
-  // const { email } = route.params;
+  const { email } = route.params;
   const [userEmail, setUserEmail] = useState<string>("");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [users, setUsers] = useState<Employee[]>([]);
@@ -87,8 +87,8 @@ const HomeScreen = ({ navigation, route }: HomeScreenProps) => {
 
   useEffect(() => {
     const loadEmail = async () => {
-      const storedEmail = await AsyncStorage.getItem("userEmail") || route.params?.email || "";
-      setUserEmail(storedEmail);
+      const email = await AsyncStorage.getItem("userEmail");
+      if (email) setUserEmail(email);
     };
     loadEmail();
   }, []);
@@ -104,14 +104,14 @@ const HomeScreen = ({ navigation, route }: HomeScreenProps) => {
     setPage(1);
   }, [search]);
 
-  const handleLogout = async () => { 
-    try { 
-      await AsyncStorage.removeItem("authToken"); 
-      await AsyncStorage.removeItem("userEmail"); 
-      navigation.replace("Login"); 
-    } catch (err) { 
-      console.error("Failed to logout", err); 
-    } 
+  const handleLogout = async () => {
+    try {
+      await AsyncStorage.multiRemove(["authToken", "userEmail"]);
+
+      navigation.replace("Login");
+    } catch (err) {
+      console.error("Failed to logout", err);
+    }
   };
 
   const start = (page - 1) * PAGE_SIZE;
@@ -137,7 +137,7 @@ const HomeScreen = ({ navigation, route }: HomeScreenProps) => {
     <View style={styles.container}>
 
       <View style={styles.header}>
-        {/* <Text style={styles.email}>{ email}</Text> */}
+        <Text style={styles.email}>{ email}</Text>
         <Text style={styles.email}>{userEmail}</Text>
         <TouchableOpacity
           style={styles.logoutIcon}
@@ -161,7 +161,7 @@ const HomeScreen = ({ navigation, route }: HomeScreenProps) => {
 
                   <View style={styles.emailBox}>
                     <Text style={styles.emailLabel}>Signed in as:</Text>
-                    <Text style={styles.emailText}>{userEmail }</Text>
+                    <Text style={styles.emailText}>{userEmail || email}</Text>
                   </View>
 
                   <TouchableOpacity
