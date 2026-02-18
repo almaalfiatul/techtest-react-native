@@ -24,9 +24,7 @@ npm install
 ## Menjalankan Aplikasi
 npm start
  atau
-expo start
-
-## Scan QR code dengan **Expo Go** di HP untuk langsung menjalankan. 
+npx expo start
 
 ## React Native CLI:
 * Android:
@@ -35,6 +33,9 @@ npx react-native run-android
 * iOS (hanya di Mac):
 npx react-native run-ios
 
+## Account for Testing
+username : admin123@gmail.com
+password : admin123
 
 ## Troubleshooting
 
